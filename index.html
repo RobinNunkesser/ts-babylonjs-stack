@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Stack 3D — Minimal Mechanics, Rich Visuals (Babylon.js)</title>
+    <meta name="description" content="A visually stunning Stack 3D game built with Babylon.js illustrating the pedagogical concept of minimal 1D mechanics generating rich 3D visuals." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app-container">
+      <!-- Header -->
+      <header id="game-header">
+        <div class="header-left">
+          <span class="badge">IGA Didaktik</span>
+          <h1>Stack 3D</h1>
+        </div>
+        <div class="header-controls">
+          <button id="btn-theme-toggle" class="icon-btn" title="Farbschema wechseln" aria-label="Farbschema wechseln">
+            🎨 <span id="theme-label">HSHL CI</span>
+          </button>
+          <button id="btn-sound-toggle" class="icon-btn" title="Ton an/aus" aria-label="Ton an/aus">
+            <span id="sound-icon">🔊</span>
+          </button>
+          <button id="btn-info" class="icon-btn" title="Didaktik der Einfachheit" aria-label="Didaktik der Einfachheit">
+            💡 Didaktik
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Game Viewport -->
+      <main id="game-viewport">
+        <canvas id="renderCanvas"></canvas>
+
+        <!-- Live Score Display -->
+        <div id="live-hud">
+          <div id="live-score">0</div>
+          <div id="combo-badge" class="hidden">PERFEKT!</div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="start-overlay" class="overlay active">
+          <div class="glass-panel hero-card">
+            <div class="hero-header">
+              <h2>STACK 3D</h2>
+              <p class="subtitle">Minimal Mechanics — Rich 3D Visuals</p>
+            </div>
+
+            <div class="intro-box">
+              <p>Baue den höchsten Turm durch perfektes Timing!</p>
+              <p class="intro-sub">
+                Tippe oder drücke <kbd>Leertaste</kbd>, um den gleitenden Quader exakt auf der darunterliegenden Schicht zu platzieren. Überstehende Teile werden erbarmungslos abgeschnitten!
+              </p>
+            </div>
+
+            <div class="highscore-badge">
+              <span>Bester Turm:</span>
+              <strong id="start-best-score">0</strong>
+            </div>
+
+            <button id="btn-start" class="btn-large pulse">
+              TURM STARTEN
+            </button>
+            <span class="tap-hint">Tippe auf den Bildschirm oder drücke [Leertaste]</span>
+          </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameover-overlay" class="overlay hidden">
+          <div class="glass-panel gameover-card">
+            <h2>TURM EINGESTÜRZT!</h2>
+            
+            <div class="score-summary-board">
+              <div class="summary-item">
+                <span class="label">Stockwerke</span>
+                <span id="summary-score" class="score-large">0</span>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-item">
+                <span class="label">Rekord</span>
+                <span id="summary-best" class="score-large best">0</span>
+              </div>
+            </div>
+
+            <div id="medal-box" class="medal-box">
+              <span id="medal-icon" class="medal-badge">🏗️</span>
+              <span id="medal-text" class="medal-text">Solider Rohbau</span>
+            </div>
+
+            <button id="btn-restart" class="btn-large pulse">
+              NOCHMAL BAUEN
+            </button>
+          </div>
+        </div>
+
+        <!-- Didactic Info Modal -->
+        <div id="info-modal" class="modal-backdrop hidden">
+          <div class="glass-panel modal-card">
+            <div class="modal-header">
+              <h3>Didaktik: Triviale Mechanik vs. 3D-Bühne</h3>
+              <button id="btn-close-info" class="btn-close" aria-label="Schließen">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="info-block">
+                <h4>🎯 Die didaktische Leitfrage</h4>
+                <p>
+                  <em>„Wie viel visuelle Faszination lässt sich aus einer fast trivialen mathematischen Grundregel erzeugen?“</em>
+                </p>
+                <p>
+                  In Vorlesungen über Computergrafik und Spieleentwicklung vermutet man hinter fesselnden 3D-Erlebnissen oft komplexe Physiksimulationen oder kilometerlangen Code. <strong>Stack 3D</strong> beweist das Gegenteil:
+                </p>
+              </div>
+
+              <div class="info-block">
+                <h4>📐 Der 1D-Schnitt: Der gesamte Code-Kern (~20 Zeilen)</h4>
+                <pre><code class="language-typescript">// Berechne nur den Versatz auf einer einzigen Achse (X oder Z):
+const delta = currentPos - prevPos;
+const absDelta = Math.abs(delta);
+
+if (absDelta &lt;= TOLERANCE) {
+  // 1. PERFEKT: Einrasten &amp; Pentatonik-Akkord
+} else if (absDelta &gt;= currentDimension) {
+  // 2. VERFEHLT: Block stürzt ab -&gt; Game Over
+} else {
+  // 3. SCHNITT: Neuer Quader + fallender Rest
+  const overlapSize = currentDimension - absDelta;
+  const overlapCenter = prevPos + (delta / 2);
+  const cutSize = absDelta; // fällt mit Physik-Drehung
+}</code></pre>
+              </div>
+
+              <div class="info-block">
+                <h4>✨ Die Babylon.js „Täuschung“ (Rich 3D Visuals)</h4>
+                <ul>
+                  <li><strong>Kaskadierende PBR-Schlagschatten:</strong> Der <code>ShadowGenerator</code> lässt jeden neuen Quader weiche Schatten auf die darunterliegenden Schichten werfen.</li>
+                  <li><strong>Prozedurales Farb-Changiieren:</strong> Jede Ebene wandert im HSL-Farbraum (z. B. HSHL-Blau zu Sonnengelb).</li>
+                  <li><strong>Physikalisches Trümmer-Spektakel:</strong> Die abgetrennten Scheiben erhalten Schwerkraft und Taumeldrehungen.</li>
+                  <li><strong>Sanfte Kamerafahrt:</strong> Die isometrische Kamera gleitet mit gedämpfter Interpolation in den Himmel.</li>
+                  <li><strong>Pentatonischer Glockenklang:</strong> Aufsteigende Melodieläufe bei fehlerfreiem Stapeln erzeugen Dopamin wie in Ketchapp Stack oder Monument Valley.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer id="game-footer">
+        <span>Steuerung: <code>Klick / Touch / Leertaste</code> — Minimal 1D Math, Rich Babylon.js 3D</span>
+      </footer>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
