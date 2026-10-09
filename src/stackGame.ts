@@ -25,6 +25,13 @@ interface FallingPiece {
   age: number;
 }
 
+interface WobbleBlock {
+  mesh: Mesh;
+  timer: number;
+  duration: number;
+  initialScaleY: number;
+}
+
 export class StackGame {
   private engine: Engine;
   private scene: Scene;
@@ -63,12 +70,16 @@ export class StackGame {
   private movePhase = 0;
   private moveSpeed = 3.2;
 
-  // Tower Meshes and Debris
+  // Tower Meshes, Wobbles and Debris
   private towerBlocks: Mesh[] = [];
   private fallingPieces: FallingPiece[] = [];
+  private wobblingBlocks: WobbleBlock[] = [];
 
-  // Smooth Camera Target
+  // Smooth Camera Target & Screen Shake
   private targetCameraY = 1.5;
+  private baseCameraTarget: Vector3 = new Vector3(0, 1.5, 0);
+  private shakeTimer: number = 0;
+  private shakeMagnitude: number = 0;
 
   // Callbacks
   public onScoreChanged?: (score: number) => void;
@@ -84,7 +95,12 @@ export class StackGame {
     });
 
     this.scene = new Scene(this.engine);
-    this.scene.clearColor = new Color4(0.06, 0.08, 0.12, 1.0);
+    this.scene.clearColor = new Color4(0.06, 0.08, 0.13, 1.0);
+
+    // Volumetrischer Atmosphären-Nebel für plastische Tiefe
+    this.scene.fogMode = Scene.FOGMODE_EXP2;
+    this.scene.fogDensity = 0.024;
+    this.scene.fogColor = new Color3(0.06, 0.08, 0.13);
 
     // Audio & Particles
     this.audioCtrl = new StackAudioController();
@@ -97,34 +113,33 @@ export class StackGame {
     this.camera = new ArcRotateCamera(
       "isoCam",
       -Math.PI / 4,
-      Math.PI / 3.2,
-      14,
-      new Vector3(0, this.targetCameraY, 0),
+      Math.PI / 3.25,
+      13.5,
+      this.baseCameraTarget.clone(),
       this.scene
     );
     this.camera.attachControl(canvas, false);
-    // User darf nicht frei drehen, um das perfekte isometrische Gefühl zu bewahren
-    this.camera.inputs.clear();
+    this.camera.inputs.clear(); // Fixe Kameraführung für perfekte Arcade-Kontrolle
 
-    // Beleuchtungssystem: Weiches Umgebungslicht + gerichtetes Licht für Schlagschatten
+    // Beleuchtungssystem: Weiches Umgebungslicht + gerichtetes Sonnenlicht
     const hemiLight = new HemisphericLight("hemiLight", new Vector3(0, 1, 0), this.scene);
-    hemiLight.intensity = 0.55;
-    hemiLight.diffuse = new Color3(0.9, 0.95, 1.0);
-    hemiLight.groundColor = new Color3(0.2, 0.25, 0.35);
+    hemiLight.intensity = 0.6;
+    hemiLight.diffuse = new Color3(0.95, 0.98, 1.0);
+    hemiLight.groundColor = new Color3(0.2, 0.25, 0.38);
 
-    this.dirLight = new DirectionalLight("dirLight", new Vector3(-0.8, -1.8, 0.6), this.scene);
-    this.dirLight.position = new Vector3(10, 20, -10);
-    this.dirLight.intensity = 1.1;
+    this.dirLight = new DirectionalLight("dirLight", new Vector3(-0.7, -1.8, 0.65), this.scene);
+    this.dirLight.position = new Vector3(12, 22, -12);
+    this.dirLight.intensity = 1.25;
 
     // Weiche Kaskadenschatten auf den Turmstufen
     this.shadowGenerator = new ShadowGenerator(1024, this.dirLight);
     this.shadowGenerator.useBlurExponentialShadowMap = true;
-    this.shadowGenerator.blurKernel = 16;
-    this.shadowGenerator.darkness = 0.45;
+    this.shadowGenerator.blurKernel = 18;
+    this.shadowGenerator.darkness = 0.42;
 
-    // Bloom / GlowLayer für die Perfekt-Aura
+    // Bloom / GlowLayer für die Perfekt-Aura & Neon-Effekte
     this.glowLayer = new GlowLayer("glow", this.scene);
-    this.glowLayer.intensity = 0.6;
+    this.glowLayer.intensity = 0.75;
 
     // Turm-Basis initialisieren
     this.createBasePlatform();
@@ -144,19 +159,19 @@ export class StackGame {
     const baseMat = new StandardMaterial("baseMat", this.scene);
     const col = this.currentTheme.getBaseColor(0);
     baseMat.diffuseColor = new Color3(col.r, col.g, col.b);
-    baseMat.specularColor = new Color3(0.3, 0.3, 0.3);
-    baseMat.specularPower = 32;
+    baseMat.specularColor = new Color3(0.4, 0.4, 0.4);
+    baseMat.specularPower = 48;
 
     const baseMesh = MeshBuilder.CreateBox(
       "basePlatform",
       {
         width: this.INITIAL_SIZE,
-        height: 2.5,
+        height: 2.8,
         depth: this.INITIAL_SIZE
       },
       this.scene
     );
-    baseMesh.position.set(0, -1.25 + this.BLOCK_HEIGHT / 2, 0);
+    baseMesh.position.set(0, -1.4 + this.BLOCK_HEIGHT / 2, 0);
     baseMesh.material = baseMat;
     baseMesh.receiveShadows = true;
 
@@ -166,7 +181,6 @@ export class StackGame {
 
   public setTheme(theme: ColorTheme) {
     this.currentTheme = theme;
-    // Basis-Farbe sofort anpassen
     if (this.towerBlocks.length > 0) {
       const baseMat = this.towerBlocks[0].material as StandardMaterial;
       if (baseMat) {
@@ -206,6 +220,7 @@ export class StackGame {
     // Trümmer abräumen
     this.fallingPieces.forEach((p) => p.mesh.dispose());
     this.fallingPieces = [];
+    this.wobblingBlocks = [];
 
     if (this.activeBlock) {
       this.activeBlock.dispose();
@@ -222,10 +237,42 @@ export class StackGame {
     this.currentAxis = "x";
     this.moveSpeed = 3.2;
     this.targetCameraY = 1.5;
-    this.camera.target.y = this.targetCameraY;
+    this.baseCameraTarget.set(0, this.targetCameraY, 0);
+    this.camera.target.copyFrom(this.baseCameraTarget);
+    this.shakeTimer = 0;
+
+    this.updateAtmosphereColor(0);
 
     this.onScoreChanged?.(this.score);
     this.onComboChanged?.(0, false);
+  }
+
+  // Sanfte Anpassung der Himmel- und Nebelfarbe an das aktuelle Stockwerk
+  private updateAtmosphereColor(level: number) {
+    const col = this.currentTheme.getBaseColor(level);
+    // Sanfter dunkler Ton abgeleitet von der aktuellen Turmfarbe
+    const bgR = Math.max(0.04, col.r * 0.12);
+    const bgG = Math.max(0.05, col.g * 0.12);
+    const bgB = Math.max(0.09, col.b * 0.16);
+
+    this.scene.clearColor = new Color4(bgR, bgG, bgB, 1.0);
+    this.scene.fogColor = new Color3(bgR, bgG, bgB);
+  }
+
+  // Juiciness: Kamera-Erschütterung
+  public triggerScreenShake(magnitude: number, duration: number) {
+    this.shakeMagnitude = magnitude;
+    this.shakeTimer = duration;
+  }
+
+  // Juiciness: Squash & Stretch Wobble bei Block-Landung
+  private triggerBlockWobble(mesh: Mesh) {
+    this.wobblingBlocks.push({
+      mesh,
+      timer: 0,
+      duration: 0.28,
+      initialScaleY: mesh.scaling.y
+    });
   }
 
   private spawnNextBlock() {
@@ -235,12 +282,13 @@ export class StackGame {
     // Wechsel der Achse: abwechselnd X und Z
     this.currentAxis = this.currentLevel % 2 === 1 ? "x" : "z";
 
-    // Material mit prozeduralem Farbton aus gewähltem Theme
+    // Material mit edlem Glanz & prozeduraler Farbe
     const col = this.currentTheme.getBaseColor(this.currentLevel);
     this.activeMaterial = new StandardMaterial(`blockMat_${this.currentLevel}`, this.scene);
     this.activeMaterial.diffuseColor = new Color3(col.r, col.g, col.b);
-    this.activeMaterial.specularColor = new Color3(0.4, 0.4, 0.4);
-    this.activeMaterial.specularPower = 32;
+    this.activeMaterial.specularColor = new Color3(0.55, 0.55, 0.55);
+    this.activeMaterial.specularPower = 48;
+    this.activeMaterial.emissiveColor = new Color3(col.r * 0.08, col.g * 0.08, col.b * 0.08);
 
     this.activeBlock = MeshBuilder.CreateBox(
       `activeBlock_${this.currentLevel}`,
@@ -263,14 +311,16 @@ export class StackGame {
       this.activeBlock.position.set(this.currentPosX, y, -this.MOVE_AMPLITUDE);
     }
 
-    // Leichte Geschwindigkeitssteigerung mit zunehmender Turmhöhe
-    this.moveSpeed = Math.min(6.2, 3.2 + this.currentLevel * 0.08);
+    // Leichte Geschwindigkeitssteigerung
+    this.moveSpeed = Math.min(6.5, 3.2 + this.currentLevel * 0.08);
 
-    // Kamera sanft nach oben nachführen
+    // Kamera und Hintergrund sanft mitwandern lassen
     this.targetCameraY = Math.max(1.5, y + 0.8);
+    this.updateAtmosphereColor(this.currentLevel);
+    this.particleCtrl.updateDustPosition(this.targetCameraY);
   }
 
-  // --- DIE TRIVIALE SPIELMECHANIK (Didaktischer Kern) ---
+  // --- DIE TRIVIALE SPIELMECHANIK + MAXIMALE JUICINESS ---
   public placeBlock(): boolean {
     if (this.state !== "PLAYING" || !this.activeBlock) {
       if (this.state === "READY") {
@@ -304,16 +354,21 @@ export class StackGame {
       const isPerfect = true;
       this.audioCtrl.playStackSound(this.combo, true);
 
-      // Partikel-Aura an den Rändern des Blocks
+      // Juiciness: Kamera-Mikroruckler & Block-Wobble
+      this.triggerScreenShake(0.08 + Math.min(0.12, this.combo * 0.02), 0.18);
+      this.triggerBlockWobble(this.activeBlock);
+
+      // Partikel-Aura + Expanding Shockwave Ring!
       const col = this.currentTheme.getBaseColor(this.currentLevel);
       this.particleCtrl.emitPerfectSparkles(
         this.activeBlock.position.clone(),
         this.currentSizeX,
         this.currentSizeZ,
-        col
+        col,
+        this.combo
       );
 
-      // Didaktischer Belohnungsmechanismus: Bei 5 Combos wächst der Turm leicht wieder an!
+      // Belohnungsmechanismus: Bei 5 Combos wächst der Turm wieder an!
       if (this.combo >= 5) {
         const bonus = 0.25;
         this.currentSizeX = Math.min(this.INITIAL_SIZE, this.currentSizeX + bonus);
@@ -339,7 +394,6 @@ export class StackGame {
 
     // Fall 2: Kompletter Fehlschlag (keine Überlappung -> Game Over)
     if (absDelta >= currentDim) {
-      // Der ganze Block stürzt ab
       this.createFallingPiece(
         this.activeBlock.position.x,
         y,
@@ -361,6 +415,9 @@ export class StackGame {
     this.audioCtrl.playSliceSound();
     this.onComboChanged?.(0, false);
 
+    // Juiciness: Sanfter Ruckler bei Schnitt
+    this.triggerScreenShake(0.06, 0.14);
+
     const overlapSize = currentDim - absDelta;
     const cutSize = absDelta;
 
@@ -369,7 +426,6 @@ export class StackGame {
       ? prevPos + currentDim / 2 + cutSize / 2
       : prevPos - currentDim / 2 - cutSize / 2;
 
-    // Alten aktiven Block entsorgen und durch den zugeschnittenen Turmblock ersetzen
     this.activeBlock.dispose();
 
     if (isAxisX) {
@@ -394,16 +450,23 @@ export class StackGame {
     placedBlock.material = this.activeMaterial;
     placedBlock.receiveShadows = true;
     this.shadowGenerator.addShadowCaster(placedBlock);
+
+    // Juiciness: Elastisches Nachfedern
+    this.triggerBlockWobble(placedBlock);
     this.towerBlocks.push(placedBlock);
     this.activeBlock = null;
 
-    // Abgeschnittener Trümmer-Block fällt taumelnd nach unten!
+    // Abgeschnittener Trümmer-Block fällt taumelnd nach unten
     const cutWidth = isAxisX ? cutSize : this.currentSizeX;
     const cutDepth = isAxisX ? this.currentSizeZ : cutSize;
     const cutX = isAxisX ? cutCenter : this.currentPosX;
     const cutZ = isAxisX ? this.currentPosZ : cutCenter;
 
     this.createFallingPiece(cutX, y, cutZ, cutWidth, cutDepth, this.activeMaterial!);
+
+    // Schnitt-Funken an der Kante
+    const col = this.currentTheme.getBaseColor(this.currentLevel);
+    this.particleCtrl.emitCutSparks(new Vector3(cutX, y, cutZ), col);
 
     this.score++;
     if (this.score > this.bestScore) {
@@ -416,7 +479,6 @@ export class StackGame {
     return true;
   }
 
-  // Erzeugt das abgetrennte Trümmerstück mit realistischer Fall- & Rotationsphysik
   private createFallingPiece(
     x: number,
     y: number,
@@ -436,11 +498,11 @@ export class StackGame {
 
     this.fallingPieces.push({
       mesh: debris,
-      vy: 0.05,
+      vy: 0.1,
       rotationSpeed: new Vector3(
-        (Math.random() - 0.5) * 4.0,
-        (Math.random() - 0.5) * 2.5,
-        (Math.random() - 0.5) * 4.0
+        (Math.random() - 0.5) * 5.0,
+        (Math.random() - 0.5) * 3.0,
+        (Math.random() - 0.5) * 5.0
       ),
       age: 0
     });
@@ -448,12 +510,12 @@ export class StackGame {
 
   private triggerGameOver() {
     this.state = "GAMEOVER";
+    this.triggerScreenShake(0.35, 0.45); // Starker Einsturz-Shake
     this.audioCtrl.playGameOverSound();
     this.onStateChanged?.(this.state);
     this.onGameOver?.(this.score, this.bestScore);
   }
 
-  // Update pro Frame
   private update() {
     const deltaSec = this.engine.getDeltaTime() / 1000;
 
@@ -469,10 +531,41 @@ export class StackGame {
       }
     }
 
-    // 2. Sanfte Kamera-Verfolgung (Smooth Damping)
-    this.camera.target.y += (this.targetCameraY - this.camera.target.y) * 0.06;
+    // 2. Sanfte gedämpfte Kamera-Verfolgung
+    this.baseCameraTarget.y += (this.targetCameraY - this.baseCameraTarget.y) * 0.06;
 
-    // 3. Stürzende Trümmerstücke (Schwerkraft & Taumeln)
+    // 3. Screen Shake Abklingen
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= deltaSec;
+      const shakeX = (Math.random() - 0.5) * this.shakeMagnitude * 2;
+      const shakeY = (Math.random() - 0.5) * this.shakeMagnitude * 2;
+      const shakeZ = (Math.random() - 0.5) * this.shakeMagnitude * 2;
+      this.camera.target.set(
+        this.baseCameraTarget.x + shakeX,
+        this.baseCameraTarget.y + shakeY,
+        this.baseCameraTarget.z + shakeZ
+      );
+    } else {
+      this.camera.target.copyFrom(this.baseCameraTarget);
+    }
+
+    // 4. Juiciness: Block Wobble (Squash & Stretch Dämpfung)
+    for (let i = this.wobblingBlocks.length - 1; i >= 0; i--) {
+      const wb = this.wobblingBlocks[i];
+      wb.timer += deltaSec;
+      const progress = wb.timer / wb.duration;
+
+      if (progress >= 1.0) {
+        wb.mesh.scaling.y = wb.initialScaleY;
+        this.wobblingBlocks.splice(i, 1);
+      } else {
+        // Gedämpfte Sinus-Federschwingung: staucht leicht und federt ein
+        const wobble = Math.sin(progress * Math.PI * 3.5) * Math.exp(-progress * 4.5) * 0.16;
+        wb.mesh.scaling.y = wb.initialScaleY * (1.0 + wobble);
+      }
+    }
+
+    // 5. Stürzende Trümmerstücke (Schwerkraft & Taumeln)
     for (let i = this.fallingPieces.length - 1; i >= 0; i--) {
       const p = this.fallingPieces[i];
       p.age += deltaSec;
@@ -482,7 +575,6 @@ export class StackGame {
       p.mesh.rotation.y += p.rotationSpeed.y * deltaSec;
       p.mesh.rotation.z += p.rotationSpeed.z * deltaSec;
 
-      // Nach 3 Sekunden oder weit unter dem Boden aufräumen
       if (p.age > 3.0 || p.mesh.position.y < -12) {
         p.mesh.dispose();
         this.fallingPieces.splice(i, 1);

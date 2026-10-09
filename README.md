@@ -20,12 +20,13 @@ In der Lehre zu Computergrafik und Game Development wird hinter visuell beeindru
    - Ist $|\Delta| \ge \text{Breite}$, stürzt der Block ab (*Game Over*).
    - Dazwischen: Neuer Block mit $\text{Breite} - |\Delta|$ und stürzender Rest mit $|\Delta|$.
 
-2. **Die babylonische „Täuschung“ (Rich 3D Visuals):**
+2. **Die babylonische „Täuschung“ (Rich 3D Visuals & Juiciness):**
    - **PBR-Materialien & Schlagschatten**: Babylon.js `ShadowGenerator` mit `BlurExponentialShadowMap` wirft dramatische Eigenschatten auf jede tiefere Turmstufe.
-   - **Prozedurales Farb-Changiieren**: Schichten wandern harmonisch im HSL-Farbraum (u. a. HSHL Campus CI Blau & Gelb).
-   - **Physikalische Trümmer**: Abgetrennte Reste erhalten einen Fall- und Drehmomentimpuls.
-   - **Sanft gedämpfte Kamera**: Kamera gleitet per Interpolation mit dem Turm in den Himmel.
-   - **Web Audio Pentatonik-Synthesizer**: Fehlerfreies Stapeln erzeugt aufsteigende Tonleitern und Dopamin.
+   - **Squash & Stretch (Elastischer Wobble)**: Beim Aufsetzen federt der Block per gedämpfter Sinus-Schwingung elastisch ein.
+   - **Kamera-Mikro-Shake**: Haptische Bildschirmerschütterungen bei Schnitten und Einsturz.
+   - **Horizontale Schockwellen & Bokeh**: Expandierende Leuchtringe bei perfekten Treffern und schwebende Ambient Dust Motes im 3D-Raum.
+   - **Volumetrischer Farbnebel**: Die Atmosphäre passt sich fließend den HSL-Farben der aktuellen Turmhöhe an (u. a. HSHL Campus CI Blau & Gelb).
+   - **Web Audio mit Raum-Echo**: Harmonische Pentatonik mit Stereo-Feedback-Delay für kathedralenartigen Hall.
 
 ---
 

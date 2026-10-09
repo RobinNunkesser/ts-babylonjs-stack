@@ -37,11 +37,21 @@ window.addEventListener("DOMContentLoaded", () => {
   // Callbacks
   game.onScoreChanged = (score) => {
     liveScore.textContent = score.toString();
+    liveScore.classList.remove("punch");
+    void liveScore.offsetWidth; // Trigger reflow
+    liveScore.classList.add("punch");
+    setTimeout(() => liveScore.classList.remove("punch"), 130);
   };
 
   game.onComboChanged = (combo, isPerfect) => {
     if (isPerfect && combo > 0) {
       comboBadge.classList.remove("hidden");
+      if (combo >= 4) {
+        comboBadge.classList.add("high-combo");
+      } else {
+        comboBadge.classList.remove("high-combo");
+      }
+
       if (combo >= 5) {
         comboBadge.textContent = `MAX COMBO x${combo}! (+EXPAND)`;
       } else if (combo >= 2) {
@@ -51,6 +61,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     } else {
       comboBadge.classList.add("hidden");
+      comboBadge.classList.remove("high-combo");
     }
   };
 
