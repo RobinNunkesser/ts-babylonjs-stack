@@ -53,8 +53,9 @@ export class StackGame {
   // Constants
   public readonly BLOCK_HEIGHT = 0.55;
   private readonly INITIAL_SIZE = 3.0;
-  private readonly PERFECT_TOLERANCE = 0.12;
-  private readonly MOVE_AMPLITUDE = 5.2;
+  private readonly INITIAL_SPEED = 1.9; // Entspannter, meditativer Einstieg wie im Original
+  private readonly PERFECT_TOLERANCE = 0.16; // Zu Beginn etwas verzeihender für Flow
+  private readonly MOVE_AMPLITUDE = 4.2; // Harmonischer Schwingbereich
 
   // Active Tower Dimensions
   private currentSizeX = this.INITIAL_SIZE;
@@ -68,7 +69,7 @@ export class StackGame {
   private activeBlock: Mesh | null = null;
   private activeMaterial: StandardMaterial | null = null;
   private movePhase = 0;
-  private moveSpeed = 3.2;
+  private moveSpeed = this.INITIAL_SPEED;
 
   // Tower Meshes, Wobbles and Debris
   private towerBlocks: Mesh[] = [];
@@ -235,7 +236,7 @@ export class StackGame {
     this.currentPosX = 0;
     this.currentPosZ = 0;
     this.currentAxis = "x";
-    this.moveSpeed = 3.2;
+    this.moveSpeed = this.INITIAL_SPEED;
     this.targetCameraY = 1.5;
     this.baseCameraTarget.set(0, this.targetCameraY, 0);
     this.camera.target.copyFrom(this.baseCameraTarget);
@@ -311,8 +312,10 @@ export class StackGame {
       this.activeBlock.position.set(this.currentPosX, y, -this.MOVE_AMPLITUDE);
     }
 
-    // Leichte Geschwindigkeitssteigerung
-    this.moveSpeed = Math.min(6.5, 3.2 + this.currentLevel * 0.08);
+    // Organische Geschwindigkeitssteigerung:
+    // Die ersten 5 Stockwerke starten entspannt (Flow & Rhythmus), danach sanfter, fairer Anstieg
+    const extraSpeed = Math.max(0, this.currentLevel - 5) * 0.065;
+    this.moveSpeed = Math.min(4.6, this.INITIAL_SPEED + extraSpeed);
 
     // Kamera und Hintergrund sanft mitwandern lassen
     this.targetCameraY = Math.max(1.5, y + 0.8);
@@ -341,8 +344,11 @@ export class StackGame {
     const delta = currentPos - prevPos;
     const absDelta = Math.abs(delta);
 
+    // Dynamische faire Toleranz: Sanft an Blockgröße gekoppelt (mind. 0.09)
+    const currentTolerance = Math.max(0.09, Math.min(this.PERFECT_TOLERANCE, currentDim * 0.075));
+
     // Fall 1: Perfekter Treffer (innerhalb Toleranz)
-    if (absDelta <= this.PERFECT_TOLERANCE) {
+    if (absDelta <= currentTolerance) {
       // Exaktes Einrasten auf die vorherige Position
       if (isAxisX) {
         this.activeBlock.position.x = prevPos;
