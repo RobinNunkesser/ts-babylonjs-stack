@@ -1,9 +1,9 @@
-# ts-stack-babylonjs
+# ts-babylonjs-stack
 
 > **Stack 3D — Minimal Mechanics, Rich Visuals**  
 > Entwickelt für das Lehrgebiet Interaktive Grafikanwendungen (IGA) zur didaktischen Demonstration, wie eine minimale mathematische Spielmechanik durch moderne 3D-Engines (Babylon.js) in ein visuell faszinierendes Spiel verwandelt wird.  
 >  
-> 🌐 **Live Demo (GitHub Pages)**: [https://robinnunkesser.github.io/ts-stack-babylonjs/](https://robinnunkesser.github.io/ts-stack-babylonjs/)
+> 🌐 **Live Demo (GitHub Pages)**: [https://robinnunkesser.github.io/ts-babylonjs-stack/](https://robinnunkesser.github.io/ts-babylonjs-stack/)
 
 ---
 
@@ -33,7 +33,7 @@ In der Lehre zu Computergrafik und Game Development wird hinter visuell beeindru
 ## 🛠️ Architektur
 
 ```
-ts-stack-babylonjs/
+ts-babylonjs-stack/
 ├── index.html              # Modernes Glassmorphism-UI, Live-Score & Didaktik-Modal
 ├── src/
 │   ├── audio.ts            # Prozeduraler Web-Audio Synthesizer (Pentatonik-Skala)
